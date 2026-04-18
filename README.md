@@ -157,3 +157,18 @@ This repository already includes:
 - **File not found errors**: verify hardcoded path constants in each script.
 - **CUDA errors**: switch models/training to CPU mode where applicable.
 - **Column mismatch during evaluation**: ensure synthetic and real test sets use consistent preprocessing schema.
+
+## Citation
+
+
+```bibtex
+@misc{https://doi.org/10.48550/arxiv.2301.07573,
+  doi = {10.48550/ARXIV.2301.07573},
+  url = {https://arxiv.org/abs/2301.07573},
+  author = {Qian, Zhaozhi and Cebere, Bogdan-Constantin and van der Schaar, Mihaela},
+  keywords = {Machine Learning (cs.LG), Artificial Intelligence (cs.AI), FOS: Computer and information sciences, FOS: Computer and information sciences},
+  title = {Synthcity: facilitating innovative use cases of synthetic data in different data modalities},
+  year = {2023},
+  copyright = {Creative Commons Attribution 4.0 International}
+}
+```

@@ -1,0 +1,2 @@
+iter,generator_loss,discriminator_loss,epsilon_hat,epsilon_target,delta,privacy_spent,inner_gan_steps,elapsed_seconds
+1,-0.7999657615179682,-0.7094459296484005,4.62488711403764,1.0,1.7019758701405708e-07,4.62488711403764,10,670.2084188461304

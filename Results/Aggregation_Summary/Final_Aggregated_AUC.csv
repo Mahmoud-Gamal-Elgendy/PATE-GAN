@@ -1,0 +1,5 @@
+Model Name,AUROC,AUCPR
+AdaBoost,0.817 ± 0.015,0.544 ± 0.028
+KNN,0.767 ± 0.025,0.460 ± 0.032
+Logistic Regression,0.819 ± 0.007,0.521 ± 0.019
+XGBoost,0.822 ± 0.009,0.542 ± 0.025

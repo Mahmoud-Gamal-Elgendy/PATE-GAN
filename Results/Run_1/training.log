@@ -1,13 +1,13 @@
-2026-04-18 11:25:37,622 | INFO | Loading training data...
-2026-04-18 11:25:38,976 | INFO | Device: cuda
-2026-04-18 11:25:38,988 | INFO | Train shape: (32561, 105)
-2026-04-18 11:25:38,994 | INFO | Target column: salary
-2026-04-18 11:25:38,998 | INFO | Number of teachers: 100
-2026-04-18 11:25:39,003 | INFO | No checkpoint found. Starting a fresh training run.
-2026-04-18 11:25:52,060 | INFO | Starting training loop: target max_iter=200, epsilon=1.000000, checkpoint_every=30
-2026-04-18 11:32:21,652 | INFO | Iter 1 | G_loss=-0.735921 | D_loss=-0.720202 | epsilon_hat=4.675639/1.000000 | inner_steps=10 | 389.59s
-2026-04-18 11:32:21,679 | INFO | Final checkpoint saved: /content/drive/MyDrive/PATE-GAN/checkpoint_iter_00001.joblib
-2026-04-18 11:32:21,691 | WARNING | Final model could not be pickled in this environment (Can't pickle <class 'synthcity.plugins.core.models.layers.SkipConnection(LinearLayer)'>: it's not found as synthcity.plugins.core.models.layers.SkipConnection(LinearLayer)). Training outputs are still saved (history CSV and synthetic data).
-2026-04-18 11:32:21,702 | INFO | Training history saved: /content/drive/MyDrive/PATE-GAN/training_history.csv
-2026-04-18 11:32:24,807 | INFO | Synthetic data saved: /content/drive/MyDrive/PATE-GAN/synthetic_data.csv | shape=(32561, 105)
-2026-04-18 11:32:24,809 | INFO | Training completed successfully.
+2026-04-23 21:25:50,581 | INFO | ================================================================================
+2026-04-23 21:25:50,584 | INFO | Starting run: Run_1
+2026-04-23 21:25:50,588 | INFO | Random state: 42
+2026-04-23 21:25:50,591 | INFO | Output directory: /content/drive/MyDrive/PATE-GAN/Run_1
+2026-04-23 21:25:50,595 | INFO | No checkpoint found. Starting a fresh training run.
+2026-04-23 21:26:03,988 | INFO | Starting training loop: target max_iter=200, epsilon=1.000000, checkpoint_every=30
+2026-04-23 21:26:58,650 | INFO | Iter 1 | G_loss=nan | D_loss=nan | epsilon_hat=1.000000 (safe=0.999958)/1.000000 | pate_queries=7771 | inner_steps=0 | 54.66s
+2026-04-23 21:26:58,652 | INFO | Privacy cap reached without exceeding budget. Stopping outer loop.
+2026-04-23 21:26:58,666 | INFO | Final checkpoint saved: /content/drive/MyDrive/PATE-GAN/Run_1/checkpoint_iter_00001.joblib
+2026-04-23 21:26:58,674 | WARNING | Final model could not be pickled in this environment (Can't pickle <class 'synthcity.plugins.core.models.layers.SkipConnection(LinearLayer)'>: it's not found as synthcity.plugins.core.models.layers.SkipConnection(LinearLayer)). Training outputs are still saved (history CSV and synthetic data).
+2026-04-23 21:26:58,683 | INFO | Training history saved: /content/drive/MyDrive/PATE-GAN/Run_1/training_history.csv
+2026-04-23 21:27:00,800 | INFO | Synthetic data saved: /content/drive/MyDrive/PATE-GAN/Run_1/synthetic_data.csv | shape=(32561, 105)
+2026-04-23 21:27:00,803 | INFO | Run completed successfully: Run_1

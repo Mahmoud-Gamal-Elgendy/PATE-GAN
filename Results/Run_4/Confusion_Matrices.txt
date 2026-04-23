@@ -1,23 +1,23 @@
 Model: Logistic Regression
 Confusion Matrix (rows=true class [0,1], cols=predicted class [0,1]):
-[[11120  1315]
- [ 2264  1582]]
-TN=11120, FP=1315, FN=2264, TP=1582
+[[12435     0]
+ [ 3846     0]]
+TN=12435, FP=0, FN=3846, TP=0
 
 Model: AdaBoost
 Confusion Matrix (rows=true class [0,1], cols=predicted class [0,1]):
-[[10642  1793]
- [ 1727  2119]]
-TN=10642, FP=1793, FN=1727, TP=2119
+[[11957   478]
+ [ 3818    28]]
+TN=11957, FP=478, FN=3818, TP=28
 
 Model: KNN
 Confusion Matrix (rows=true class [0,1], cols=predicted class [0,1]):
-[[10989  1446]
- [ 2502  1344]]
-TN=10989, FP=1446, FN=2502, TP=1344
+[[12435     0]
+ [ 3846     0]]
+TN=12435, FP=0, FN=3846, TP=0
 
 Model: XGBoost
 Confusion Matrix (rows=true class [0,1], cols=predicted class [0,1]):
-[[10715  1720]
- [ 1849  1997]]
-TN=10715, FP=1720, FN=1849, TP=1997
+[[12404    31]
+ [ 3840     6]]
+TN=12404, FP=31, FN=3840, TP=6

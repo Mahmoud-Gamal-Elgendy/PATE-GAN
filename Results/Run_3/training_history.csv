@@ -1,2 +1,2 @@
-iter,generator_loss,discriminator_loss,epsilon_hat,epsilon_target,delta,privacy_spent,inner_gan_steps,elapsed_seconds
-1,-0.6533806147103812,-0.820415025537879,4.626023114037641,1.0,1.7019758701405708e-07,4.626023114037641,10,659.9236400127411
+iter,generator_loss,discriminator_loss,epsilon_hat,epsilon_hat_safe,epsilon_target,delta,privacy_spent,pate_queries_used,budget_exhausted,inner_gan_steps,elapsed_seconds
+1,,,1.0,0.9999580561957867,1.0,1.7019758701405708e-07,1.0,7771,True,0,56.498775482177734

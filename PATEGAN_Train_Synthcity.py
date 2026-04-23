@@ -35,6 +35,40 @@ except ImportError:
 from synthcity.plugins.core.models.tabular_gan import TabularGAN
 
 
+# --- Strict privacy cap helpers (Synthcity-aligned) ---
+class PrivacyBudgetExceeded(RuntimeError):
+    def __init__(self, *, epsilon_hat_safe: float, queries_used: int) -> None:
+        super().__init__("Privacy budget would be exceeded by next query")
+        self.epsilon_hat_safe = float(epsilon_hat_safe)
+        self.queries_used = int(queries_used)
+
+
+def compute_epsilon_hat(alpha_dict: np.ndarray, delta: float) -> float:
+    curr_list: List[float] = []
+    for lidx in range(len(alpha_dict)):
+        local_alpha = (float(alpha_dict[lidx]) - float(np.log(delta))) / float(lidx + 1)
+        curr_list.append(float(local_alpha))
+    return float(np.min(curr_list)) if curr_list else float("inf")
+
+
+def update_moments_accountant(lamda: float, n0: float, n1: float) -> float:
+    qbase = float(lamda) * float(np.abs(n0 - n1))
+    return float((2.0 + qbase) / (4.0 * np.exp(qbase)))
+
+
+def update_alpha_dict_inplace(alpha_dict: np.ndarray, lamda: float, n0: float, n1: float) -> None:
+    """
+    Match Synthcity PATEGAN._update_alpha logic (per single query element).
+    This avoids calling pategan._update_alpha directly during lookahead.
+    """
+    q = update_moments_accountant(lamda, n0, n1)
+    for lidx in range(len(alpha_dict)):
+        upper = 2.0 * (float(lamda) ** 2) * (lidx + 1) * (lidx + 2)
+        t = (1.0 - q) * np.power((1.0 - q) / (1.0 - np.exp(2.0 * float(lamda)) * q), lidx + 1)
+        t = np.log(t + q * np.exp(2.0 * float(lamda) * lidx + 1.0))
+        alpha_dict[lidx] += float(np.clip(t, a_min=0.0, a_max=upper))
+
+
 
 # User placeholders
 TRAIN_DATA_PATH = "/content/drive/MyDrive/PATE-TransGAN/Adult/Adult_after/adult_train_preprocessed.csv"
@@ -275,7 +309,7 @@ def run_one_outer_iteration(
     plugin: Any,
     x_train_enc: pd.DataFrame,
     epsilon_hat: float,
-) -> Tuple[float, float, float, int]:
+) -> Tuple[float, float, float, int, bool, float, int]:
     """
     Executes one outer PATE iteration:
     1) train teachers
@@ -283,7 +317,8 @@ def run_one_outer_iteration(
     3) update privacy accountant
 
     Returns:
-        generator_loss_mean, discriminator_loss_mean, epsilon_hat, inner_steps
+        generator_loss_mean, discriminator_loss_mean, epsilon_hat, inner_steps,
+        budget_exhausted, epsilon_hat_safe, pate_queries_used
     """
     pategan = plugin.model
 
@@ -295,7 +330,13 @@ def run_one_outer_iteration(
     )
     teachers.fit(np.asarray(x_train_enc), pategan.model)
 
+    epsilon_target = float(pategan.epsilon)
+    pate_queries_used = 0
+    epsilon_hat_safe = float(epsilon_hat)
+    budget_exhausted = False
+
     def fake_labels_generator(x_batch: torch.Tensor) -> torch.Tensor:
+        nonlocal pate_queries_used, epsilon_hat_safe, budget_exhausted
         if pategan.n_teachers == 0:
             return torch.zeros((len(x_batch),))
 
@@ -305,8 +346,37 @@ def run_one_outer_iteration(
         if np.sum(y_mb) >= len(x_batch) / 2:
             return torch.zeros((len(x_batch),))
 
-        pategan._update_alpha(n0_mb, n1_mb)
-        return torch.from_numpy(np.reshape(np.asarray(y_mb, dtype=int), [-1, 1]))
+        # Strict privacy cap: apply accountant updates per query element,
+        # with a lookahead check to ensure epsilon_hat never exceeds epsilon_target.
+        y_mb = np.asarray(y_mb, dtype=int).reshape(-1)
+        n0_mb = np.asarray(n0_mb).reshape(-1)
+        n1_mb = np.asarray(n1_mb).reshape(-1)
+
+        for i in range(len(y_mb)):
+            # Lookahead: what would epsilon_hat become if we apply this update?
+            alpha_tmp = np.array(pategan.alpha_dict, copy=True)
+            update_alpha_dict_inplace(alpha_tmp, float(pategan.lamda), float(n0_mb[i]), float(n1_mb[i]))
+            eps_tmp = compute_epsilon_hat(alpha_tmp, float(pategan.delta))
+
+            # If this query would exceed budget, stop before committing.
+            if eps_tmp > epsilon_target:
+                epsilon_hat_safe = compute_epsilon_hat(np.asarray(pategan.alpha_dict), float(pategan.delta))
+                budget_exhausted = True
+                raise PrivacyBudgetExceeded(
+                    epsilon_hat_safe=epsilon_hat_safe,
+                    queries_used=pate_queries_used,
+                )
+
+            # Commit update (safe)
+            update_alpha_dict_inplace(
+                np.asarray(pategan.alpha_dict),
+                float(pategan.lamda),
+                float(n0_mb[i]),
+                float(n1_mb[i]),
+            )
+            pate_queries_used += 1
+
+        return torch.from_numpy(np.reshape(y_mb, [-1, 1]))
 
     # Capture GAN epoch losses by wrapping internal train epoch.
     inner_losses: List[Tuple[float, float]] = []
@@ -320,20 +390,25 @@ def run_one_outer_iteration(
 
     base_gan._train_epoch = wrapped_train_epoch
     try:
-        pategan.model.fit(
-            x_train_enc,
-            fake_labels_generator=fake_labels_generator,
-            encoded=True,
-        )
+        try:
+            pategan.model.fit(
+                x_train_enc,
+                fake_labels_generator=fake_labels_generator,
+                encoded=True,
+            )
+        except PrivacyBudgetExceeded as e:
+            # Stop inner training without exceeding privacy budget.
+            budget_exhausted = True
+            epsilon_hat_safe = float(e.epsilon_hat_safe)
     finally:
         base_gan._train_epoch = original_train_epoch
 
-    curr_list: List[float] = []
-    for lidx in range(pategan.alpha):
-        local_alpha = (pategan.alpha_dict[lidx] - np.log(pategan.delta)) / float(lidx + 1)
-        curr_list.append(float(local_alpha))
+    # Always compute current safe epsilon_hat from accountant state.
+    epsilon_hat_safe = compute_epsilon_hat(np.asarray(pategan.alpha_dict), float(pategan.delta))
 
-    epsilon_hat = float(np.min(curr_list))
+    # If we hit the strict cap, set epsilon_hat to target to ensure outer loop stops,
+    # but preserve epsilon_hat_safe for reporting.
+    epsilon_hat = float(epsilon_target) if budget_exhausted else float(epsilon_hat_safe)
 
     if inner_losses:
         g_loss_mean = float(np.mean([x[0] for x in inner_losses]))
@@ -342,7 +417,7 @@ def run_one_outer_iteration(
         g_loss_mean = float("nan")
         d_loss_mean = float("nan")
 
-    return g_loss_mean, d_loss_mean, epsilon_hat, len(inner_losses)
+    return g_loss_mean, d_loss_mean, epsilon_hat, len(inner_losses), budget_exhausted, epsilon_hat_safe, pate_queries_used
 
 
 def write_history_csv(history: List[Dict[str, Any]], output_dir: Path) -> Path:
@@ -563,10 +638,12 @@ def run_single_experiment(
         current_iter += 1
         t0 = time.time()
 
-        g_loss, d_loss, epsilon_hat, inner_steps = run_one_outer_iteration(
+        g_loss, d_loss, epsilon_hat, inner_steps, budget_exhausted, epsilon_hat_safe, pate_queries_used = (
+            run_one_outer_iteration(
             plugin=plugin,
             x_train_enc=x_train_enc,
             epsilon_hat=epsilon_hat,
+        )
         )
 
         elapsed = time.time() - t0
@@ -576,24 +653,32 @@ def run_single_experiment(
             "generator_loss": g_loss,
             "discriminator_loss": d_loss,
             "epsilon_hat": epsilon_hat,
+            "epsilon_hat_safe": epsilon_hat_safe,
             "epsilon_target": float(args.epsilon),
             "delta": float(plugin.model.delta),
             "privacy_spent": epsilon_hat,
+            "pate_queries_used": pate_queries_used,
+            "budget_exhausted": bool(budget_exhausted),
             "inner_gan_steps": inner_steps,
             "elapsed_seconds": elapsed,
         }
         history.append(row)
 
         logger.info(
-            "Iter %d | G_loss=%.6f | D_loss=%.6f | epsilon_hat=%.6f/%.6f | inner_steps=%d | %.2fs",
+            "Iter %d | G_loss=%.6f | D_loss=%.6f | epsilon_hat=%.6f (safe=%.6f)/%.6f | pate_queries=%d | inner_steps=%d | %.2fs",
             current_iter,
             g_loss,
             d_loss,
             epsilon_hat,
+            epsilon_hat_safe,
             float(args.epsilon),
+            pate_queries_used,
             inner_steps,
             elapsed,
         )
+
+        if budget_exhausted:
+            logger.info("Privacy cap reached without exceeding budget. Stopping outer loop.")
 
         if current_iter % int(args.checkpoint_every) == 0:
             ckpt_file = save_checkpoint(
